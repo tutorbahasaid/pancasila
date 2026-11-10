@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Edukasi Pancasila</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --piece-w: 100px; 
+    --piece-aspect: 1;
+    --cols: 4;
+    --primary: #E53935;
+    --secondary: #FFCA28;
+  }
+  
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: 'Fredoka', system-ui, sans-serif;
+    background: linear-gradient(135deg, #E0F7FA 0%, #FFF9C4 100%);
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; padding: 20px; color: #37474F;
+    overflow-x: hidden;
+  }
+
+  /* HEADER & NAVIGASI */
+  header { text-align: center; margin-bottom: 10px; }
+  h1 { color: var(--primary); font-size: 2.2rem; font-weight: 700; text-shadow: 2px 2px 0px #fff; margin-bottom: 8px; }
+  .sub { font-size: 1.1rem; color: #546E7A; font-weight: 600; margin-bottom: 20px; }
+
+  .nav-tabs {
+    display: flex; gap: 10px; margin-bottom: 25px; background: rgba(255,255,255,0.6);
+    padding: 8px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    flex-wrap: wrap; justify-content: center;
+  }
+  .nav-btn {
+    background: transparent; border: none; padding: 12px 25px;
+    font-family: 'Fredoka', sans-serif; font-size: 1.1rem; font-weight: 700;
+    color: #78909C; cursor: pointer; border-radius: 40px; transition: all 0.3s;
+  }
+  .nav-btn:hover { color: var(--primary); background: rgba(255,255,255,0.8); }
+  .nav-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(229, 57, 53, 0.3); }
+
+  /* PROGRESS BAR */
+  .progress-container {
+    width: 100%; max-width: 700px; background: #fff; padding: 10px 20px; border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 15px; margin-bottom: 25px;
+  }
+  .progress-text { font-weight: 700; color: var(--primary); min-width: 80px; }
+  .progress-track { flex-grow: 1; height: 16px; background: #ECEFF1; border-radius: 20px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #66BB6A, #43A047); border-radius: 20px; transition: width 0.4s ease; }
+
+  /* ================= LAYOUT GAME ================= */
+  .game-layout {
+    display: none; 
+    justify-content: center; 
+    align-items: flex-start;
+    gap: 25px;
+    width: 100%; 
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 10px;
+  }
+  .game-layout.active { display: flex; animation: fadeIn 0.4s ease; }
+  
+  /* Khusus Game Cerita (Vertikal) */
+  #layout-cerita.active {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* TOMBOL REFRESH IKON (BARU) */
+  .btn-icon {
+    position: absolute; top: 15px; right: 15px;
+    background: #fff; border: 2px solid #E0E0E0; border-radius: 50%;
+    width: 35px; height: 35px; font-size: 1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: all 0.2s; z-index: 10;
+  }
+  .btn-icon:hover { background: #F5F5F5; transform: scale(1.1) rotate(30deg); }
+
+  /* PAPAN SUSUN (BOARD) */
+  .board-container {
+    flex-shrink: 0; 
+    background: #fff; padding: 15px; border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    position: relative; /* Penting untuk posisi tombol ikon */
+  }
+  .board {
+    display: grid; grid-template-columns: repeat(var(--cols), var(--piece-w));
+    gap: 4px; background: #ECEFF1; padding: 4px; border-radius: 16px;
+  }
+  .slot {
+    width: var(--piece-w); aspect-ratio: var(--piece-aspect);
+    border: 3px dashed #B0BEC5; border-radius: 8px; background: #FAFAFA;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; color: #CFD8DC; transition: all 0.2s ease; position: relative;
+  }
+  
+  /* Khusus Game Cerita */
+  .board-story { display: grid; grid-template-columns: repeat(3, 140px); gap: 10px; background: #ECEFF1; padding: 10px; border-radius: 16px; }
+  .slot-story { width: 140px; height: 140px; }
+  .slot-story::before {
+    content: attr(data-step); position: absolute; top: -10px; left: -10px;
+    background: var(--primary); color: white; width: 30px; height: 30px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 1.1rem; z-index: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
+
+  .slot.over { background: #E8F5E9; border-color: #4CAF50; transform: scale(1.05); }
+  .slot.correct { border: none; padding: 0; background: transparent; box-shadow: 0 2px 8px rgba(0,0,0,0.15); overflow: hidden; }
+  .slot.correct img { width: 100%; height: 100%; display: block; }
+
+  /* AREA POTONGAN (TRAY) */
+  .tray-container {
+    flex: 1 1 300px; 
+    max-width: 550px;
+    background: #fff; padding: 20px; border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    min-height: 200px;
+    position: relative; /* Penting untuk posisi tombol ikon */
+  }
+  .tray-title { text-align: center; font-size: 1.2rem; font-weight: 700; color: #78909C; margin-bottom: 15px; border-bottom: 2px dashed #CFD8DC; padding-bottom: 10px;}
+  .tray { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-content: flex-start; }
+  
+  /* Potongan Puzzle */
+  .piece {
+    width: var(--piece-w); aspect-ratio: var(--piece-aspect);
+    border: 3px solid #fff; border-radius: 10px; cursor: grab;
+    overflow: hidden; transition: all 0.2s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    user-select: none; touch-action: none;
+  }
+  .piece img { width: 100%; height: 100%; display: block; pointer-events: none; object-fit: cover; }
+  .piece:hover { transform: translateY(-5px) scale(1.05); box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 10; }
+  .piece.selected { border-color: var(--secondary); box-shadow: 0 0 0 4px var(--secondary); transform: scale(1.05); animation: pulse 1.5s infinite; }
+  .piece.wrong { animation: shake 0.4s; border-color: #EF5350; }
+  .piece.dragging { opacity: 0.4; z-index: 100; }
+  
+  /* Potongan Cerita */
+  .piece-story { width: 140px; height: 140px; } 
+
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 202, 40, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 202, 40, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 202, 40, 0); } }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px) rotate(-2deg); } 75% { transform: translateX(8px) rotate(2deg); } }
+
+  /* STORY UI */
+  .story-box {
+    width: 100%; max-width: 800px; background: #fff; padding: 20px;
+    border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    margin-bottom: 20px; text-align: center; border-left: 8px solid var(--secondary);
+    position: relative;
+  }
+  .story-text {
+    max-height: 220px; overflow-y: auto; padding-right: 10px;
+    font-size: 1rem; color: #455A64; line-height: 1.6; font-weight: 600; margin-bottom: 15px; text-align: left;
+  }
+  .story-text::-webkit-scrollbar { width: 8px; }
+  .story-text::-webkit-scrollbar-thumb { background: #FFCA28; border-radius: 10px; }
+  
+  .btn-audio {
+    background: #2196F3; color: white; border: none; padding: 12px 25px;
+    border-radius: 50px; font-family: 'Fredoka', sans-serif; font-size: 1.1rem;
+    font-weight: 700; cursor: pointer; box-shadow: 0 4px 0 #1565C0; transition: 0.1s;
+  }
+  .btn-audio:active { transform: translateY(4px); box-shadow: 0 0 0 #1565C0; }
+
+  /* FEEDBACK */
+  .feedback { font-size: 1.3rem; font-weight: 700; text-align: center; min-height: 30px; margin-top: 20px; }
+
+  /* MODAL KEMENANGAN */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease; z-index: 1000;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: auto; }
+  .modal-box {
+    background: #fff; padding: 40px; border-radius: 30px; text-align: center;
+    transform: scale(0.8); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    max-width: 90%; width: 400px;
+  }
+  .modal-overlay.show .modal-box { transform: scale(1); }
+  .modal-icon { font-size: 5rem; margin-bottom: 10px; animation: bounce 1s infinite; }
+  .modal-title { font-size: 2rem; color: var(--primary); margin-bottom: 10px; }
+  .modal-desc { font-size: 1.1rem; color: #546E7A; margin-bottom: 25px; }
+  .btn {
+    background: var(--primary); color: white; border: none; padding: 12px 30px; border-radius: 50px;
+    font-family: 'Fredoka', sans-serif; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 6px 0 #B71C1C; transition: all 0.1s;
+  }
+  .btn:active { transform: translateY(6px); box-shadow: 0 0 0 #B71C1C; }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+
+  /* RESPONSIVE */
+  @media (max-width: 1000px) {
+    h1 { font-size: 1.8rem; }
+    .game-layout.active { flex-direction: column; align-items: center; }
+    .tray-container { width: 100%; max-width: 100%; }
+    .board-story { grid-template-columns: repeat(3, 100px); }
+    .slot-story, .piece-story { width: 100px; height: 100px; }
+  }
+  @media (max-width: 480px) {
+    .slot-story, .piece-story { width: 90px; height: 90px; }
+    .board-story { grid-template-columns: repeat(3, 90px); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🇮🇩 Game Edukasi Pancasila</h1>
+  <div class="sub">Pilih permainan dan susunlah dengan rapi!</div>
+</header>
+
+<div class="nav-tabs">
+  <button class="nav-btn active" id="tab-garuda" onclick="switchGame('garuda')">🦅 Garuda (4x4)</button>
+  <button class="nav-btn" id="tab-perisai" onclick="switchGame('perisai')">🛡️ Perisai (3x3)</button>
+  <button class="nav-btn" id="tab-cerita" onclick="switchGame('cerita')">📖 Susun Cerita</button>
+</div>
+
+<div class="progress-container">
+  <div class="progress-text">Progres</div>
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <div style="font-weight:700; color:#43A047;" id="scoreText">0/16</div>
+</div>
+
+<!-- ================= GAME 1: GARUDA ================= -->
+<div class="game-layout active" id="layout-garuda">
+  <div class="board-container">
+    <button class="btn-icon" onclick="initGame()" title="Mulai Ulang">🔄</button>
+    <div class="board" id="board-garuda"></div>
+  </div>
+  <div class="tray-container">
+    <div class="tray-title">Potongan Garuda (Acak)</div>
+    <div class="tray" id="tray-garuda"></div>
+  </div>
+</div>
+
+<!-- ================= GAME 2: PERISAI ================= -->
+<div class="game-layout" id="layout-perisai">
+  <div class="board-container">
+    <button class="btn-icon" onclick="initGame()" title="Mulai Ulang">🔄</button>
+    <div class="board" id="board-perisai"></div>
+  </div>
+  <div class="tray-container">
+    <div class="tray-title">Potongan Perisai (Acak)</div>
+    <div class="tray" id="tray-perisai"></div>
+  </div>
+</div>
+
+<!-- ================= GAME 3: SUSUN CERITA ================= -->
+<div class="game-layout" id="layout-cerita">
+  
+  <div class="story-box">
+    <!-- Tombol Refresh di dalam story box -->
+    <button class="btn-icon" onclick="initGame()" title="Mulai Ulang">🔄</button>
+    
+    <div class="story-text">
+      <strong>Rina and the Happy Picnic</strong><br><br>
+      <b>Part 1:</b> The sun is shining brightly. Rina wakes up with a big smile. Before she eats breakfast, she closes her eyes and prays to God. "Thank you for this beautiful day," she whispers.<br><br>
+      <b>Part 2:</b> Rina walks to school. She sees her friend, Leo. "Oh no, my bag is too heavy!" Leo cries. Rina runs to him. "Don't worry, I will help you," she says. She carries one of his bags.<br><br>
+      <b>Part 3:</b> At the park, the children start to argue. "Let's play tag!" says one boy. "No, let's play hide and seek!" says another girl. Rina steps in and says, "Stop, my friends! We are all friends. Let's play together!"<br><br>
+      <b>Part 4:</b> To choose the game, all the children sit in a big circle. They talk nicely and listen to each other. They vote for the eagle game. Everyone agrees and they run to the field happily.<br><br>
+      <b>Part 5:</b> After playing, everyone is hungry. But, one friend, Sam, looks sad. He forgot his snack. Rina and Leo smile. "Here, Sam! Let's share our food!" Now, everyone has food.<br><br>
+      <b>Part 6:</b> Everyone is happy. They gather together and take a group photo under the big tree. What a wonderful day!
+    </div>
+    
+    <button class="btn-audio" onclick="playAudio()">
+      🔊 Listen to the Story
+    </button>
+    <audio id="elevenAudio" src="audio/story.mp3"></audio>
+  </div>
+
+  <div class="board-container" style="margin-bottom: 20px;">
+    <div class="board-story" id="board-cerita"></div>
+  </div>
+
+  <div class="tray-container">
+    <div class="tray-title">Pilih dan Urutkan Gambar yang Benar!</div>
+    <div class="tray" id="tray-cerita"></div>
+  </div>
+</div>
+
+<div class="feedback" id="feedback"></div>
+
+<!-- (Tombol Mulai Ulang Teks Besar DIHAPUS dari sini) -->
+
+<div class="modal-overlay" id="winModal">
+  <div class="modal-box">
+    <div class="modal-icon" id="winIcon">🏆</div>
+    <h2 class="modal-title" id="winTitle">Luar Biasa!</h2>
+    <p class="modal-desc" id="winDesc">Kamu berhasil menyelesaikannya dengan sempurna!</p>
+    <!-- Tombol Main Lagi di dalam modal tetap ada -->
+    <button class="btn" onclick="initGame()">✨ Main Lagi</button>
+  </div>
+</div>
+
+<script>
+// ==========================================
+// KONFIGURASI
+// ==========================================
+const GAMES = {
+  garuda: { 
+    type: 'puzzle', 
+    cols: 4, rows: 4, 
+    images: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], 
+    pieceW: 100, 
+    title: 'Garuda Pancasila', winIcon: '🦅' 
+  },
+  perisai: { 
+    type: 'puzzle', 
+    cols: 3, rows: 3, 
+    images: [17,18,19,20,21,22,23,24,25], 
+    pieceW: 120, 
+    title: 'Perisai Pancasila', winIcon: '🛡️' 
+  },
+  cerita: { 
+    type: 'story', 
+    cols: 3, rows: 2, 
+    correctImages: [26,27,28,29,30,31], 
+    decoyImages: [32,33,34,35,36,37], 
+    pieceW: 130, 
+    title: 'Cerita Pancasila', winIcon: '📖' 
+  }
+};
+
+let currentGameKey = 'garuda';
+let totalPieces = 16;
+let score = 0;
+let selectedIndex = null;
+let draggedIndex = null;
+
+const feedbackEl = document.getElementById('feedback');
+const progressFill = document.getElementById('progressFill');
+const scoreText = document.getElementById('scoreText');
+const winModal = document.getElementById('winModal');
+const root = document.documentElement;
+
+// ==========================================
+// FUNGSI PINDAH GAME
+// ==========================================
+function switchGame(gameKey) {
+  currentGameKey = gameKey;
+  const config = GAMES[currentGameKey];
+  
+  root.style.setProperty('--cols', config.cols);
+  root.style.setProperty('--piece-w', config.pieceW + 'px');
+
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(`tab-${gameKey}`).classList.add('active');
+  
+  document.querySelectorAll('.game-layout').forEach(layout => layout.classList.remove('active'));
+  document.getElementById(`layout-${gameKey}`).classList.add('active');
+
+  const audioEl = document.getElementById('elevenAudio');
+  if(audioEl) { audioEl.pause(); audioEl.currentTime = 0; }
+
+  initGame();
+}
+
+// ==========================================
+// LOGIKA INISIALISASI GAME
+// ==========================================
+function initGame() {
+  const config = GAMES[currentGameKey];
+  const board = document.getElementById(`board-${currentGameKey}`);
+  const tray = document.getElementById(`tray-${currentGameKey}`);
+
+  board.innerHTML = '';
+  tray.innerHTML = '';
+  feedbackEl.textContent = '';
+  winModal.classList.remove('show');
+  score = 0; selectedIndex = null; draggedIndex = null;
+
+  let allImages = [];
+
+  if (config.type === 'puzzle') {
+    totalPieces = config.cols * config.rows;
+    // Gambar acak
+    allImages = [...config.images].sort(() => Math.random() - 0.5);
+    
+    const probe = new Image();
+    probe.onload = () => root.style.setProperty('--piece-aspect', probe.naturalWidth / probe.naturalHeight);
+    probe.src = `images/${config.images[0]}.png`;
+
+    for (let i = 0; i < totalPieces; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.dataset.index = i;
+      slot.dataset.correctId = config.images[i];
+      slot.textContent = '?';
+      setupSlotEvents(slot);
+      board.appendChild(slot);
+    }
+  } else if (config.type === 'story') {
+    totalPieces = config.correctImages.length;
+    allImages = [...config.correctImages, ...config.decoyImages].sort(() => Math.random() - 0.5);
+    
+    for (let i = 0; i < totalPieces; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'slot slot-story';
+      slot.dataset.step = i + 1;
+      slot.dataset.index = i;
+      slot.dataset.correctId = config.correctImages[i];
+      slot.textContent = '?';
+      setupSlotEvents(slot);
+      board.appendChild(slot);
+    }
+  }
+
+  updateProgress();
+
+  allImages.forEach(imgId => {
+    const piece = document.createElement('div');
+    piece.className = config.type === 'story' ? 'piece piece-story' : 'piece';
+    piece.draggable = true;
+    piece.dataset.id = imgId;
+    piece.innerHTML = `<img src="images/${imgId}.png" alt="Piece ${imgId}" draggable="false">`;
+    
+    piece.addEventListener('dragstart', e => {
+      draggedIndex = imgId;
+      piece.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', imgId);
+      document.querySelectorAll(`#tray-${currentGameKey} .piece`).forEach(p => p.classList.remove('selected'));
+      selectedIndex = null;
+    });
+    piece.addEventListener('dragend', () => piece.classList.remove('dragging'));
+    
+    piece.addEventListener('click', () => {
+      document.querySelectorAll(`#tray-${currentGameKey} .piece`).forEach(p => p.classList.remove('selected'));
+      piece.classList.add('selected');
+      selectedIndex = imgId;
+      feedbackEl.textContent = '👉 Pilih kotak tujuannya!';
+      feedbackEl.style.color = '#1976D2';
+    });
+    
+    tray.appendChild(piece);
+  });
+}
+
+function setupSlotEvents(slot) {
+  slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('over'); });
+  slot.addEventListener('dragleave', () => slot.classList.remove('over'));
+  slot.addEventListener('drop', e => {
+    e.preventDefault(); slot.classList.remove('over');
+    tryMatch(parseInt(e.dataTransfer.getData('text/plain') || draggedIndex), slot);
+  });
+  slot.addEventListener('click', () => { 
+    if (selectedIndex !== null) tryMatch(selectedIndex, slot); 
+  });
+}
+
+// ==========================================
+// PENGECEKAN JAWABAN
+// ==========================================
+function tryMatch(pieceId, slot) {
+  if (isNaN(pieceId) || slot.classList.contains('correct')) return;
+
+  const tray = document.getElementById(`tray-${currentGameKey}`);
+  const pieceEl = tray.querySelector(`.piece[data-id="${pieceId}"]`);
+  if (!pieceEl) return;
+
+  if (pieceId === parseInt(slot.dataset.correctId)) {
+    slot.classList.add('correct');
+    slot.textContent = '';
+    
+    const img = pieceEl.querySelector('img').cloneNode();
+    img.draggable = false;
+    slot.appendChild(img);
+    
+    pieceEl.remove();
+    selectedIndex = null;
+    score++;
+    updateProgress();
+    playSound(880, 0.1); 
+    
+    feedbackEl.textContent = '🎉 Hebat! Benar!';
+    feedbackEl.style.color = '#2E7D32';
+
+    if (score === totalPieces) {
+      setTimeout(showWinScreen, 500);
+    }
+  } else {
+    pieceEl.classList.add('wrong');
+    setTimeout(() => pieceEl.classList.remove('wrong'), 400);
+    playSound(220, 0.15); 
+    feedbackEl.textContent = '❌ Ups, gambar ini tidak cocok. Coba lagi ya!';
+    feedbackEl.style.color = '#C62828';
+  }
+}
+
+// ==========================================
+// FUNGSI AUDIO
+// ==========================================
+function playAudio() {
+  const audio = document.getElementById('elevenAudio');
+  audio.currentTime = 0;
+  
+  const playPromise = audio.play();
+  
+  if (playPromise !== undefined) {
+    playPromise.then(_ => {
+      feedbackEl.textContent = '🎧 Mendengarkan cerita...';
+      feedbackEl.style.color = '#1976D2';
+    })
+    .catch(error => {
+      alert("Gagal memutar audio! Pastikan file 'story.mp3' berada di dalam folder 'audio'.");
+    });
+  }
+}
+
+// ==========================================
+// UI, SUARA, & KEMENANGAN
+// ==========================================
+function updateProgress() {
+  const percent = (score / totalPieces) * 100;
+  progressFill.style.width = percent + '%';
+  scoreText.textContent = `${score}/${totalPieces}`;
+}
+
+function showWinScreen() {
+  const config = GAMES[currentGameKey];
+  document.getElementById('winIcon').textContent = config.winIcon;
+  document.getElementById('winDesc').textContent = `Kamu berhasil menyelesaikan ${config.title} dengan sempurna!`;
+  
+  winModal.classList.add('show');
+  playSound(660, 0.15);
+  setTimeout(() => playSound(880, 0.15), 160);
+  setTimeout(() => playSound(1100, 0.4), 320);
+  createConfetti();
+}
+
+let audioCtx;
+function playSound(freq, duration) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  } catch (e) { }
+}
+
+function createConfetti() {
+  const colors = ['#E53935', '#FFCA28', '#4CAF50', '#2196F3', '#9C27B0'];
+  for (let i = 0; i < 50; i++) {
+    const conf = document.createElement('div');
+    conf.style.position = 'fixed'; conf.style.width = Math.random() * 10 + 5 + 'px'; conf.style.height = Math.random() * 10 + 5 + 'px';
+    conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    conf.style.left = Math.random() * 100 + 'vw'; conf.style.top = '-20px'; conf.style.zIndex = '2000';
+    conf.style.borderRadius = Math.random() > 0.5 ? '50%' : '0'; conf.style.pointerEvents = 'none';
+    document.body.appendChild(conf);
+    
+    const fallDuration = Math.random() * 2 + 1.5;
+    conf.animate([{ transform: `translateY(0) rotate(0deg)`, opacity: 1 }, { transform: `translateY(100vh) rotate(${Math.random() * 720}deg)`, opacity: 0 }], { duration: fallDuration * 1000, easing: 'cubic-bezier(.37,0,.63,1)' });
+    setTimeout(() => conf.remove(), fallDuration * 1000);
+  }
+}
+
+switchGame('garuda');
+</script>
+</body>
+</html>
